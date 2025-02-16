@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
 import { Preview } from '@creatomate/preview';
-import { Button } from './Button';
+import { StyledButton } from './styles/CreateButtonStyles';
 
 interface CreateButtonProps {
   preview: Preview;
 }
 
+/**
+ * Componente CreateButton
+ * - Busca o template atual através de uma API e atualiza o preview.
+ * - Exibe o ID do template atual e, se disponível, exibe o conteúdo renderizado.
+ */
 export const CreateButton: React.FC<CreateButtonProps> = (props) => {
   const [templateId, setTemplateId] = useState<string>('');
   const [render, setRender] = useState<any>();
 
-  // Buscar o templateId atual e atualizar o preview
+  // Função que busca o templateId na API e atualiza o preview com a nova fonte
   useEffect(() => {
     const fetchTemplate = async () => {
       try {
@@ -19,7 +23,7 @@ export const CreateButton: React.FC<CreateButtonProps> = (props) => {
         const data = await response.json();
         setTemplateId(data.templateId);
         
-        // Atualiza o preview com o novo templateId
+        // Atualiza o preview caso o templateId seja retornado
         if (props.preview && data.templateId) {
           props.preview.setSource({ templateId: data.templateId });
         }
@@ -42,15 +46,21 @@ export const CreateButton: React.FC<CreateButtonProps> = (props) => {
           <div>{render}</div>
         </div>
       )}
+
+      {/* Exemplo de utilização do StyledButton */}
+      <StyledButton onClick={() => console.log('Ação do botão Create')}>
+        Criar Vídeo
+      </StyledButton>
     </div>
   );
 };
 
-const Component = styled(Button)`  display: block;
-  margin-left: auto;
-`;
-
-const finishVideo = async (preview: Preview) => {
+/**
+ * Função finishVideo
+ * - Finaliza a renderização do vídeo enviando os dados da fonte (source) para a API.
+ * - Lida com os retornos e erros da requisição.
+ */
+export const finishVideo = async (preview: Preview) => {
   const response = await fetch('/api/videos', {
     method: 'POST',
     headers: {
@@ -73,7 +83,19 @@ const finishVideo = async (preview: Preview) => {
     }
   }
 
-  return await response.json();
+  const result = await response.json();
+
+  if (result.modifications && typeof result.modifications === 'object') {
+    const newModifications = { ...result.modifications };
+    await preview.setModifications(newModifications);
+    console.log('[setPropertyValue] Preview atualizado com modificações retornadas:', newModifications);
+    // Se o preview fornecer um método para forçar a atualização, utilize-o:
+    // preview.forceUpdate(); 
+  } else {
+    console.log('[setPropertyValue] Nenhuma modificação retornada pelo endpoint.');
+  }
+
+  return result;
 };
 
 

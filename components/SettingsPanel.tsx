@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { Preview, PreviewState } from '@creatomate/preview';
 import { TextInput } from './TextInput';
@@ -20,6 +20,31 @@ export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = ({ preview, cur
   console.log('🎬 Preview:', preview);
   
   const modificationsRef = useRef<Record<string, any>>({});
+
+  // 1. Polling via useEffect
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/update-properties');
+        if (!response.ok) {
+          throw new Error(`[Polling] Erro: ${response.status}`);
+        }
+        const data = await response.json();
+        // Se o backend devolver modifications atualizadas, atualizar o preview
+        if (data.modifications) {
+          // Só atualiza se tiver diferença
+          if (JSON.stringify(modificationsRef.current) !== JSON.stringify(data.modifications)) {
+            modificationsRef.current = data.modifications;
+            await preview.setModifications(modificationsRef.current);
+            console.log('[Polling] Preview atualizado com modificações do backend');
+          }
+        }
+      } catch (error) {
+        console.error('[Polling] Erro GEN:', error);
+      }
+    }, 4000); // a cada 4 segundos (exemplo)
+    return () => clearInterval(interval);
+  }, [preview]);
 
   if (!preview) {
     console.error('Preview não está definido');
@@ -162,18 +187,67 @@ const ColorBox = styled.div<{ color: string }>`
   }
 `;
 
+/**
+ * Função setPropertyValue
+ * - Atualiza o valor de uma propriedade no preview e armazena a modificação.
+ * - Se o parâmetro 'postEndpoint' for informado, envia os dados via POST para o endpoint.
+ * - Ao receber a resposta, atualiza o preview com as modificações retornadas.
+ */
 const setPropertyValue = async (
   preview: Preview,
   selector: string,
   value: string,
   modifications: Record<string, any>,
+  postEndpoint?: string // Endpoint opcional para envio dos dados via POST
 ) => {
+  console.log('[setPropertyValue] Início da execução', { selector, value, modifications });
+
+  // Atualiza as modificações localmente no cliente.
   if (value.trim()) {
     modifications[selector] = value;
   } else {
     delete modifications[selector];
   }
+  console.log('[setPropertyValue] Modificações após update do cliente:', modifications);
+
+  // Atualiza o preview com as modificações atuais.
   await preview.setModifications(modifications);
+  console.log('[setPropertyValue] preview.setModifications aplicado:', modifications);
+
+  // Se um endpoint for definido, envia os dados via POST.
+  if (postEndpoint) {
+    console.log(`[setPropertyValue] Enviando dados para endpoint: ${postEndpoint}`);
+    try {
+      const response = await fetch(postEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ selector, value, modifications })
+      });
+      
+      console.log('[setPropertyValue] Resposta do fetch:', response);
+
+      if (!response.ok) {
+        throw new Error(`Falha ao enviar os dados: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('[setPropertyValue] Dados retornados do endpoint:', result);
+
+      // Se houver modificações retornadas, atualiza o preview novamente.
+      if (result.modifications) {
+        await preview.setModifications(result.modifications);
+        console.log('[setPropertyValue] Preview atualizado com modificações retornadas:', result.modifications);
+        // Opcional: atualizar também a referência/estado com as novas modificações.
+        // Exemplo: modificationsRef.current = result.modifications;
+      }
+    } catch (error) {
+      console.error('[setPropertyValue] Erro ao enviar os dados via POST:', error);
+    }
+  } else {
+    console.log('[setPropertyValue] Nenhum endpoint definido para envio dos dados');
+  }
 };
 
 const ensureElementVisibility = async (preview: Preview, elementName: string, addTime: number) => {

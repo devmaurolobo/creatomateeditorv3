@@ -171,15 +171,15 @@ const Wrapper = styled.div`
 const Container = styled.div`
   width: 100%;
   height: 100%;
-  max-width: 720px;
-  max-height: 720px;
   margin: auto;
+
 `;
 
 const Panel = styled.div`
   width: 100%;
   background: rgb(238, 238, 238);
   padding: 20px;
+  display: none;
   overflow-y: auto;
 
   @media (min-width: 768px) {
