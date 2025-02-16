@@ -29,6 +29,7 @@ export const CreateButton: React.FC<CreateButtonProps> = (props) => {
     };
 
     fetchTemplate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Executa apenas uma vez ao montar o componente
 
   return (
