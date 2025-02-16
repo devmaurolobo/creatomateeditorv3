@@ -1,0 +1,13 @@
+{
+  "source": {
+    "timeline": {
+      "layers": [
+        {
+          "type": "text",
+          "content": "Olá, mundo!"
+        }
+      ]
+    }
+  },
+  "templateId": "48ae0d2e-a094-4abc-9dec-5f31db134fd4"
+} 
