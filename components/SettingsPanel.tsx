@@ -25,7 +25,7 @@ export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = ({ preview, cur
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/update-properties');
+        const response = await fetch('https://creatomateeditorv3.vercel.app/api/update-properties');
         if (!response.ok) {
           throw new Error(`[Polling] Erro: ${response.status}`);
         }
