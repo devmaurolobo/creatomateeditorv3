@@ -15,16 +15,29 @@ const colorPalette = [
   '#FF5733', '#33FF57', '#3357FF', '#F39C12', '#8E44AD', '#E74C3C', '#1ABC9C'
 ];
 
-export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = (props) => {
+export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = ({ preview, currentState }) => {
+  console.log('🎨 Estado atual:', currentState);
+  console.log('🎬 Preview:', preview);
+  
   const modificationsRef = useRef<Record<string, any>>({});
 
+  if (!preview) {
+    console.error('Preview não está definido');
+    return null;
+  }
+
   const findElement = (elementName: string) => {
-    return props.preview.getElements().find((element) => element.source.name === elementName);
+    try {
+      return preview.getElements().find((element) => element.source.name === elementName);
+    } catch (error) {
+      console.error('Erro ao buscar elemento:', error);
+      return null;
+    }
   };
 
   return (
     <div>
-      <CreateButton preview={props.preview} />
+      <CreateButton preview={preview} />
       {/* Grupo de Textos */}
       <Group>
         <GroupTitle>Textos</GroupTitle>
@@ -32,9 +45,9 @@ export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = (props) => {
           <TextInput
             key={textName}
             placeholder={textName}
-            onFocus={() => ensureElementVisibility(props.preview, textName, 1.5)}
+            onFocus={() => ensureElementVisibility(preview, textName, 1.5)}
             onChange={(e) =>
-              setPropertyValue(props.preview, textName, e.target.value, modificationsRef.current)
+              setPropertyValue(preview, textName, e.target.value, modificationsRef.current)
             }
           />
         ))}
@@ -58,9 +71,9 @@ export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = (props) => {
                     onClick={async () => {
                       const imageElement = findElement(`Image${index}`);
                       if (imageElement) {
-                        await ensureElementVisibility(props.preview, imageElement.source.name, 1.5);
+                        await ensureElementVisibility(preview, imageElement.source.name, 1.5);
                         await setPropertyValue(
-                          props.preview,
+                          preview,
                           imageElement.source.name,
                           url,
                           modificationsRef.current
@@ -89,7 +102,7 @@ export const SimpleSettingsPanel: React.FC<SettingsPanelProps> = (props) => {
                     const shapeElement = findElement(`Shape${index}`);
                     if (shapeElement) {
                       await setPropertyValue(
-                        props.preview,
+                        preview,
                         `${shapeElement.source.name}.fill_color`,
                         color,
                         modificationsRef.current

@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@creatomate/preview": "^1.5.0",
+    "@supabase/supabase-js": "^2.48.1",
+    "@vercel/edge-config": "^1.4.0",
     "@vercel/kv": "^3.0.0",
     "creatomate": "^1.1.0",
     "eslint": "^8.30.0",

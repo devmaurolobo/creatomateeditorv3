@@ -1,48 +1,50 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { createClient } from '@supabase/supabase-js';
 
-// Para desenvolvimento local
-let templateId = "2c424dba-1165-4818-ad34-827e76a7bf38";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
 
-const storage = {
-  async get(key: string) {
-    if (process.env.VERCEL) {
-      const { kv } = await import('@vercel/kv');
-      return await kv.get(key);
-    }
-    return templateId;
-  },
-  async set(key: string, value: string) {
-    if (process.env.VERCEL) {
-      const { kv } = await import('@vercel/kv');
-      await kv.set(key, value);
-    }
-    templateId = value;
-  }
-};
+// Template ID padrão
+const DEFAULT_TEMPLATE = "2c424dba-1165-4818-ad34-827e76a7bf38";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'GET') {
-    try {
-      const currentId = await storage.get('current_template_id') || templateId;
+  try {
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('template_id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      
+      const currentId = data?.template_id || DEFAULT_TEMPLATE;
       console.log('GET solicitado, retornando templateId:', currentId);
       res.status(200).json({ templateId: currentId });
-    } catch (error) {
-      res.status(500).json({ error: 'Erro ao buscar template' });
-    }
-  } else if (req.method === 'POST') {
-    try {
+
+    } else if (req.method === 'POST') {
       const receivedId = req.body.templateId;
+      
       if (typeof receivedId === 'string' && receivedId.trim() !== '') {
-        await storage.set('current_template_id', receivedId);
+        const { error } = await supabase
+          .from('templates')
+          .insert({ template_id: receivedId });
+
+        if (error) throw error;
+
         console.log('Novo templateId:', receivedId);
         res.status(200).json({ message: 'Template ID atualizado', templateId: receivedId });
       } else {
         res.status(400).json({ error: 'templateId inválido ou vazio.' });
       }
-    } catch (error) {
-      res.status(500).json({ error: 'Erro ao atualizar template' });
+    } else {
+      res.status(405).json({ error: 'Método não permitido' });
     }
-  } else {
-    res.status(405).json({ error: 'Método não permitido' });
+  } catch (error) {
+    console.error('Erro na API:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 } 

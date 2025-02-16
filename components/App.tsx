@@ -28,45 +28,21 @@ const App: React.FC = () => {
       const data = await response.json();
       console.log('📥 Dados recebidos da API:', data);
       
-      console.log('⏳ Iniciando carregamento do template:', data.templateId);
-      try {
-        // Adicionando timeout para evitar travamento infinito
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Timeout ao carregar template')), 10000);
-        });
-
-        // Race entre o carregamento do template e o timeout
-        await Promise.race([
-          preview.loadTemplate(data.templateId),
-          timeoutPromise
-        ]);
-
-        console.log('🎯 Template source:', await preview.getSource());
-        setCurrentTemplateId(data.templateId);
-        console.log('✅ Template carregado com sucesso!');
-      } catch (error) {
-        console.error('❌ Erro ao carregar template:', error);
-        // Tenta recuperar o estado atual do preview
-        try {
-          const currentSource = await preview.getSource();
-          console.error('📊 Estado atual do preview:', {
-            source: currentSource,
-          });
-        } catch (e) {
-          console.error('❌ Não foi possível obter estado do preview:', e);
-        }
-        
-        // Tenta reiniciar o preview em caso de erro
-        try {
-          console.log('🔄 Tentando reiniciar preview...');
-          preview.dispose();
-          setUpPreview(preview.element);
-        } catch (e) {
-          console.error('❌ Erro ao reiniciar preview:', e);
-        }
+      if (!data.templateId) {
+        throw new Error('Template ID não encontrado');
       }
+      
+      console.log('⏳ Iniciando carregamento do template:', data.templateId);
+      await preview.loadTemplate(data.templateId);
+      
+      // Verifica se o template foi carregado
+      const source = await preview.getSource();
+      console.log('🎯 Template source:', source);
+      
+      setCurrentTemplateId(data.templateId);
+      console.log('✅ Template carregado com sucesso!');
     } catch (error) {
-      console.error('❌ Erro ao buscar template da API:', error);
+      console.error('❌ Erro ao carregar template:', error);
     }
   };
 
@@ -79,14 +55,21 @@ const App: React.FC = () => {
       previewRef.current = undefined;
     }
 
-    console.log('🔑 Token:', process.env.NEXT_PUBLIC_CREATOMATE_PUBLIC_TOKEN);
     const preview = new Preview(htmlElement, 'player', process.env.NEXT_PUBLIC_CREATOMATE_PUBLIC_TOKEN!);
 
+    // Primeiro configuramos todos os handlers
     preview.onReady = async () => {
-      console.log('🎬 Preview está pronto, carregando template inicial...');
-      await loadTemplate(preview);
-      console.log('✅ Setup inicial completo');
+      console.log('🎬 Preview está pronto');
+      previewRef.current = preview; // Só salvamos a referência quando estiver pronto
       setIsReady(true);
+      
+      // Agora sim carregamos o template
+      try {
+        await loadTemplate(preview);
+        console.log('✅ Setup inicial completo');
+      } catch (error) {
+        console.error('❌ Erro no setup inicial:', error);
+      }
     };
 
     preview.onLoad = () => {
@@ -104,8 +87,6 @@ const App: React.FC = () => {
       setCurrentState(state);
       setVideoAspectRatio(state.width / state.height);
     };
-
-    previewRef.current = preview;
   };
 
   // Polling com intervalo maior
@@ -130,26 +111,33 @@ const App: React.FC = () => {
     }
   }, [isReady, currentTemplateId]);
 
+  useEffect(() => {
+    if (previewRef.current && windowWidth) {
+      console.log('📏 Tamanho da janela mudou, recarregando preview...');
+      loadTemplate(previewRef.current);
+    }
+  }, [windowWidth]);
+
   return (
     <Component>
       <Wrapper>
         <Container
+          id="preview-container"
           ref={(htmlElement) => {
-            if (htmlElement && htmlElement !== previewRef.current?.element) {
+            if (htmlElement && !previewRef.current) {
               setUpPreview(htmlElement);
             }
-          }}
-          style={{
-            height:
-              videoAspectRatio && windowWidth && windowWidth < 768 ? window.innerWidth / videoAspectRatio : undefined,
           }}
         />
       </Wrapper>
 
       <Panel>
-        {isReady && (
-          <PanelContent id="panel">
-            <SimpleSettingsPanel preview={previewRef.current!} currentState={currentState} />
+        {isReady && previewRef.current && (
+          <PanelContent>
+            <SimpleSettingsPanel 
+              preview={previewRef.current} 
+              currentState={currentState} 
+            />
           </PanelContent>
         )}
       </Panel>
@@ -162,28 +150,24 @@ const App: React.FC = () => {
 export default App;
 
 const Component = styled.div`
-  width: 100vw;
-  height: 100vh;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
   
-
   @media (min-width: 768px) {
     flex-direction: row;
-    
   }
 `;
 
 const Wrapper = styled.div`
+  flex: 1;
+  padding: 20px;
   display: flex;
-
-  @media (min-width: 768px) {
-    flex: 1;
-    padding: 20px;
-    
-  }
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
 `;
-
 const Container = styled.div`
   width: 100%;
   height: 100%;
@@ -193,27 +177,20 @@ const Container = styled.div`
 `;
 
 const Panel = styled.div`
-  flex: 1;
-  position: relative;
-  background:rgb(238, 238, 238);
-  box-shadow: rgba(190, 48, 48, 0.1) 0 6px 15px 0;
+  width: 100%;
+  background: rgb(238, 238, 238);
+  padding: 20px;
+  overflow-y: auto;
 
   @media (min-width: 768px) {
-    flex: initial;
-    margin: 50px;
     width: 400px;
+    margin: 20px;
     border-radius: 15px;
   }
 `;
 
 const PanelContent = styled.div`
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
   height: 100%;
-  padding: 20px;
-  overflow: auto;
 `;
 
 const LoadIndicator = styled.div`
@@ -221,15 +198,8 @@ const LoadIndicator = styled.div`
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 5px 15px;
-  background: #ffff;
-  box-shadow: rgba(0, 0, 0, 0.1) 0 6px 15px 0;
+  background: white;
+  padding: 10px 20px;
   border-radius: 5px;
-  font-size: 15px;
-  font-weight: 600;
-
-  @media (min-width: 768px) {
-    top: 50px;
-    left: calc((100% - 400px) / 2);
-  }
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 `;
