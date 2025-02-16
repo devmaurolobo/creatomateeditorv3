@@ -51,8 +51,6 @@ const App: React.FC = () => {
           const currentSource = await preview.getSource();
           console.error('📊 Estado atual do preview:', {
             source: currentSource,
-            isPlaying: preview.isPlaying,
-            currentTime: preview.currentTime
           });
         } catch (e) {
           console.error('❌ Não foi possível obter estado do preview:', e);
@@ -105,10 +103,6 @@ const App: React.FC = () => {
       console.log('🔄 Estado mudou:', state);
       setCurrentState(state);
       setVideoAspectRatio(state.width / state.height);
-    };
-
-    preview.onError = (error) => {
-      console.error('❌ Erro no preview:', error);
     };
 
     previewRef.current = preview;
